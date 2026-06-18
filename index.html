@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="/assests/administrador.png">
+<link href="assets/favicon.ico" rel="icon">
+
+<title>Perfumes Granja</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo"> Perfumes Granja</div>
+    <div class="subtitle">Sistema de Ventas</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="showPage('ventas')">➕ Registrar</div>
+  <div class="tab" onclick="showPage('historial')">📋 Historial</div>
+  <div class="tab" onclick="showPage('cartera')">💰 Cartera</div>
+  <div class="tab" onclick="showPage('lotes')">📦 Lotes</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="cards" id="statsCards"></div>
+  <div class="table-box">
+    <div class="table-header"><h2>Últimas Ventas</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Loción</th><th>Lote</th><th>Total</th><th>Estado</th><th>Método</th></tr></thead>
+        <tbody id="dashboardTabla"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTRAR -->
+<div id="page-ventas" class="page">
+  <div class="form-box">
+    <h2>➕ Registrar Nueva Venta</h2>
+    <div class="form-grid">
+      <div class="field"><label>Cliente</label><input type="text" id="f_cliente" placeholder="Nombre del cliente" list="clientesList"><datalist id="clientesList"></datalist></div>
+      <div class="field"><label>Lote</label><select id="f_lote"><option value="">-- Seleccionar Lote --</option></select></div>
+      <div class="field" style="grid-column:span 2">
+        <label>Loción</label>
+        <div class="genero-toggle">
+          <button class="genero-btn active" onclick="setGenero('caballero',this)">🧔 Caballero</button>
+          <button class="genero-btn" onclick="setGenero('dama',this)">👱‍♀️ Dama</button>
+        </div>
+        <select id="f_locion" style="font-size:14px;"></select>
+      </div>
+      <div class="field"><label>Cantidad</label><input type="number" id="f_cantidad" placeholder="1" min="1" value="1"></div>
+      <div class="field"><label>Costo (x mayor)</label><input type="text" id="f_costo" placeholder="10.000" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Precio de venta</label><input type="text" id="f_precio" placeholder="17.000" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Estado</label>
+        <select id="f_estado">
+          <option value="Pago">✅ Pago</option>
+          <option value="Debe">🔴 Debe</option>
+        </select>
+      </div>
+      <div class="field"><label>Cuánto debe / pagó</label><input type="text" id="f_cuanto" placeholder="0" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Método de Pago</label>
+        <select id="f_metodo">
+          <option>Efectivo</option>
+          <option>Nequi</option>
+          <option>Transferencia</option>
+          <option>Banco</option>
+          <option>Mío</option>
+          <option>Yo (Consumo propio)</option>
+        </select>
+      </div>
+      <div class="field" style="align-self:flex-end;">
+        <button class="btn btn-primary" onclick="registrarVenta()">✅ Registrar Venta</button>
+      </div>
+    </div>
+    <div id="msgVenta" style="margin-top:12px;font-weight:600;color:#16a34a;"></div>
+  </div>
+  <div class="form-box">
+    <h2>📦 Agregar Nuevo Lote</h2>
+    <div class="form-grid">
+      <div class="field"><label>Nombre del Lote</label><input type="text" id="l_nombre" placeholder="Ej: Noveno Lote"></div>
+      <div class="field" style="align-self:flex-end;"><button class="btn btn-primary" onclick="agregarLote()">Crear Lote</button></div>
+    </div>
+  </div>
+  <div class="form-box" style="border:2px dashed #2563eb;">
+    <h2>📥 Importar Excel (LOCIONES.xlsx)</h2>
+    <p style="font-size:13px;color:#4a5568;margin-bottom:14px;">Selecciona tu archivo Excel y se importarán todos los lotes y ventas automáticamente.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <input type="file" id="excelFile" accept=".xlsx,.xls" style="font-size:13px;">
+      <button class="btn btn-success" onclick="importarExcel()">📥 Importar</button>
+      <button class="btn btn-danger btn-sm" onclick="borrarTodo()">🗑️ Borrar todo</button>
+    </div>
+    <div id="msgImport" style="margin-top:12px;font-weight:600;"></div>
+  </div>
+</div>
+
+<!-- HISTORIAL -->
+<div id="page-historial" class="page">
+  <div class="table-box">
+    <div class="table-header">
+      <h2>📋 Todas las Ventas</h2>
+      <input class="search-box" placeholder="🔍 Buscar..." oninput="filtrarHistorial(this.value)">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Lote</th><th>Loción</th><th>Cant.</th><th>Costo</th><th>Precio</th><th>Total</th><th>Estado</th><th>Cuánto debe</th><th>Método</th><th>Acciones</th></tr></thead>
+        <tbody id="historialTabla"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CARTERA -->
+<div id="page-cartera" class="page">
+  <div class="cards" id="carteraCards"></div>
+  <div class="cartera-filter">
+    <button class="filter-btn active" onclick="filtrarCartera('todos',this)">Todos</button>
+    <button class="filter-btn" onclick="filtrarCartera('Debe',this)">🔴 Solo Deudas</button>
+    <button class="filter-btn" onclick="filtrarCartera('Pago',this)">✅ Solo Pagos</button>
+  </div>
+  <div class="table-box">
+    <div class="table-header"><h2>💰 Cartera de Clientes</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Lote</th><th>Loción</th><th>Total</th><th>Estado</th><th>Cuánto Debe</th><th>Método</th><th>Acciones</th></tr></thead>
+        <tbody id="carteraTabla"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- LOTES -->
+<div id="page-lotes" class="page">
+  <div class="lotes-grid" id="lotesGrid"></div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>✏️ Editar Venta</h3>
+    <div class="modal-grid">
+      <div class="field"><label>Cliente</label><input type="text" id="m_cliente"></div>
+      <div class="field"><label>Lote</label><select id="m_lote"></select></div>
+      <div class="field" style="grid-column:span 2">
+        <label>Loción</label>
+        <div class="genero-toggle">
+          <button class="genero-btn active" id="m_g_cab" onclick="setGeneroModal('caballero',this)">🧔 Caballero</button>
+          <button class="genero-btn" id="m_g_dam" onclick="setGeneroModal('dama',this)">👱‍♀️ Dama</button>
+        </div>
+        <select id="m_locion"></select>
+      </div>
+      <div class="field"><label>Cantidad</label><input type="number" id="m_cantidad"></div>
+      <div class="field"><label>Costo (x mayor)</label><input type="text" id="m_costo" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Precio venta</label><input type="text" id="m_precio" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Estado</label>
+        <select id="m_estado">
+          <option value="Pago">✅ Pago</option>
+          <option value="Debe">🔴 Debe</option>
+        </select>
+      </div>
+      <div class="field"><label>Cuánto debe / pagó</label><input type="text" id="m_cuanto" data-precio oninput="fmtInput(this)"></div>
+      <div class="field"><label>Método</label>
+        <select id="m_metodo">
+          <option>Efectivo</option><option>Nequi</option><option>Transferencia</option><option>Banco</option><option>Mío</option><option>Yo (Consumo propio)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="eliminarVenta()">🗑️ Eliminar</button>
+      <button class="btn btn-sm" style="background:#e2e8f0;color:#4a5568;" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-success btn-sm" onclick="guardarEdicion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAGO RÁPIDO -->
+<div class="modal-overlay" id="pagoModal">
+  <div class="modal" style="max-width:360px;">
+    <h3>💵 Marcar como Pagado</h3>
+    <p style="color:#4a5568;font-size:14px;margin-bottom:16px;" id="pagoInfo"></p>
+    <div class="field" style="margin-bottom:16px;">
+      <label>Método de pago recibido</label>
+      <select id="p_metodo">
+        <option>Efectivo</option><option>Nequi</option><option>Transferencia</option><option>Banco</option><option>Mío</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm" style="background:#e2e8f0;color:#4a5568;" onclick="cerrarPagoModal()">Cancelar</button>
+      <button class="btn btn-success btn-sm" onclick="confirmarPago()">✅ Confirmar Pago</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LOCIONES_CABALLERO = ["1 millon Lucky","212","212 VIP","Orientica Oud Safron","Aqua de Cartier","Limonny","Bacarat Rouge","Silver Mountain","Swiss Army","Mandarin","Invictus","Angel","Fahrenheit","Baccarat","Orientica","Diesel Plus Plus","Lacoste Red","Blu Chanel","Only the Brave","CH Prive","Amber Gold Edition","Invictus Perfum","Amatista","Khamrah","Issy Miyake","Asad Tafa","Bararat Rouge","Black XS Lexus","Boss Unlimited","Solo Yambal","Starry Night","Faconable","Ultramale","Náutica Voyage","Heros","1 Millon","9PM","Hugo Boss","Lapidus","París Hilton","Bad Diesel","Sauvage","Phantom","Tommy","212 AQUA","212 HEROES","212 SEXY","212 VIP BLACK","212 VIP BLACK RED","212 VIP PARTY FEVER","212 VIP WILD PARTY","212 VIP WINS","360°","360° RED","ADRENALINE","ALLURE HOME SPORT","ANIMALE","AMBER OUD GOLD HARAMAIN","AMBER OUD ROUGE HARAMAIN","AQUA DI GIO","AQUA FAHRENHEIT","ARSENAL","ARABIANS","ARABIANS TONKA","AZZARO","BACCARAT ROUGE 540","BAD","BAD BOY","BAD DIESEL INTENSE","BHARARA KING","BIG PONY 4","BLACK CODE","BLACK GOLD","BLACK XS","BLACK XS AFRODISIACA","BLACK XS LEGEND","BLACK XS L'EXCES","BLACK XS LOS ANGELES","BLUE JEANS","BLUE CHANNEL","BLUE SEDUCTION","BLV BULGARI","BOSS","BOSS BOTTLED NIGHT","BOSS BOTTLED TONIC","BOSS BOTTLED UNITED","BOSS IN MOTION","BOSS ORANGE","BOSS SELECTION","BOSS SOUL","BVLGARI","BVLGARI AQUA","BVLGARI AQVA TONY","BVLGARI ATLANTIQUE","BVLGARI MAN","BVLGARI MAN IN BLACK","BVLGARI POUR HOME","CAROLINA HERRERA","CH AFRICA","CH CENTRAL PARK","CH SPORT","CHIC CAROLINA HERRERA","CK FREE","CK IN 2U","CK ONE","CRISTIANO CR7","CRISTIANO LEGACY","CREED AVENTUS","CURVE","DECLARATION","DAVID BECKHAM","DIESEL","DOLCE GABBANA","DOLCE GABBANA POUR HOMME","DORSAY","DRAKAR","EAU D CARTIER","EROS VERSACCE","ESCAPE","ETERNITY","EUPHORIA","FERRAGAMO","FERRARI BLACK","FUEL FOR LIFE","FUEL FOR LIFE SPIRIT","GIVENCHY","GIVENCHY BLUE","GIVENCHY GENTLEMAN","GUESS NIGHT","HAPPY CLINIQUE","HUGO DARK BLUE","HUGO ELEMENT","HUGO ENERGISE","HUGO ICED","HUGO JUST DIFERENT","HUGO RED","HUGO REVERSED","HUGO URBAN JOURNEY","IL KAKUNO","IL FEMME","INSURRECTION","INTENSE CAFÉ MONTALE","INVICTUS AQUA","INVICTUS VICTORY","ISSEY MIYAKE SPORT","ISSEY MIYAKE NUIT","JEAN PAUL GAULTIER","JIMMY CHOO","JORDAN","L.12.12 BLUE","L.12.12 EAU FRAICHE","L.12.12 NOIR","L.12.12 ROUGE","L.12.12 VERT","L.12.12 WHITE","L.12.12 YELLOW","L'AVENTURE AL HARAMAIN","L'HOMME LACOSTE","LACOSTE CHALLENGE","LACOSTE ESSENTIAL","LACOSTE LIVE","LIGHT BLUE","LOLITA LEMPICKA","LOWE 7","LOWE 7 ANONIMO","LUNA ROSA EAU SPORT PRADA","MERCEDES BENZ CLUB","MINOTAURO","MONTANA","MONTBLANC EMBLEM","MONTBLANC LEGEND","MONTBLANC LEGEND SPIRIT","MONTBLANC EXPLORER","MONTBLANC NIGHT","MONTBLANC PRESENCE","MOSCHINO FOREVER","MOSCHINO FOREVER SILING","NAUTICA LIFE","OHM","OMBRE NOMADA","ONE MILLION INTENSE","ONE MILLION PRIVE","ONLY THE BRAVE TATTOO","ONLY THE BRAVE WILD","OSADIA","OSCAR DE LA RENTA","PI GIVENCHY","PI NEO GIVENCHY","PINO SILVESTRE","POLO BLUE","POLO RED","SANTOS DE CARTIER","SOLO","SOLO LOEWE","SPIRIT OF THE BRAVE","STARWALKER","SWISS ARMY WATER","THE ONE","THE SECRET","TOY BOY MOSCHINO","VERSACE DYLAN BLUE POUR HOMME","VERSACE FRAICHE","VERSACE POUR HOMME","VERY IRRESISTIBLE","XY HUGO BOSS","YVES SAINT LAURENT","ZLATAN"].sort();
+
+const LOCIONES_DAMA = ["Can Can","CH","Coco Mademoiselle","Coconut passion","Delina","Diesel Blanca","Heiris scandal","La vida es bella elixir","Light Blue","Omnia coral","Thank Next","Loquito por Ti","Paris Hilton tradicional","Good Girl","Deseos Victoria Secret","Sexy Now","Love Spell","Deseos","Pink Dream","Pink Fruits","Scandal","Angel","Dubay","Sofia","Coury de Yambal","Bond No 9 Dubai","Lataffa Yara","Carolina","Heires","Bond No 9","360","Bomba de Carolina Herrera","Tafa Noble","Kim Kardashian","Rap Lauren","Maya Tafa","Yumyum","212 NYC","212 SEXY","212 VIP","212 VIP CLUB","212 HEROES FOREVER YOUNG","212 VIP PARTY FEVER","212 VIP ROSE","212 VIP ROSE RED","212 VIP WILD PARTY","212 VIP WINS","360°","360° CORAL","360 PURPLE","5TA. AVENIDA","AGUA DEL SOL","AMARIGE","AMOR AMOR","AMBER OUD GOLD AL HARAMAIN","ANAIS ANAIS","ANGEL OU DEMON","ANGEL OU DEMON SECRET","ANIMAL","AQUA DE OLYMPEA","ARABIANS","ARABIANS TONKA","ACQUA DI GIO","BACCARAT ROUGE 540","BFF KIM KARDASHIAN","BLACK XS","BLACK XS LOS ANGELES","BOMBON","BOMBSHELL","BOND SIGNATURE NO. 9","BUBBLE GUM MOSCHINO","BURBERRY LONDON","BURBERRY HER","CLOUD ARIANA GRANDE","CH AFRICA","CH AFRIKA","CH GOOD GIRL","CH GOOD GIRL VELVET","CH L'EAU","CH SUBLIME","CHANCE CHANEL","CHANCE EAU TENDRE","CHANEL NO. 5","CIELO YAMBAL","CK ONE SHOK","DAY DREAMS","DIAMANTES BLANCOS","EAU D LACOSTE SENSUELLE","ELIXIR BY SHAKIRA","ED HARDY","ESCADA BLOOSON MIAMI","ESCADA BORD IN PARADISSE","ESCADA CELEBRATE NOW","ESCADA FIESTA CARIOCA","ESCADA MOON SPARKLE","ESCADA OCEAN LOUNGE","ESCADA PARADISSE","ESCADA FLOR DEL SOL","ESCADA SORBETTO ROSSO","ESCADA SUMMER TURQUOISE","ESCADA TAJ SUNSET","ESCADA TAJ SUNSET HEAT","EUPHORIA DEEP","FANTASY","FAME PACO RABANNE","GAIA","GOLD FRESH MOSCHINO","GUCCI BAMBOO","GUCCI RUSH","HELLO KITTY","HUGO BOSS ORANGE","HUGO BOSS THE SCENT","IL ROSSO","J'ADORE","L.12.12 POUR ELLE NATUR","L.12.12 POUR ELLE SPARKLING","L'EXTASE NINA RICCI","LACOSTE TOUCH OF PINK","LADY GAGA FAME","LADY MILLION","LADY MILLION LUCKY","LADY MILLION PRIVE","MIDNIGHT FANTASY","MOSCHINO FUNNY","NARCISE","OLYMPEA","OMNIA AMETHYSTE","OMNIA CRYSTALLINE","OMNIA PARAIBA","ORGANZA","OUR MOMENT ONE DIRECTION","PARIS HILTON CAN CAN","PARIS HILTON CAN CAN BURLESQUE","PARIS HILTON DAZZLE","PARIS HILTON HEIRESS","PARIS H PASSPORT PARIS","PARIS H PLATINUM RUSH","PARIS HILTON SIREN","PARIS HILTON WHITE LOVE","RALPH LAUREN","SELENA GOMEZ","SI ARMANI","SOFIA VERGARA","TOY 2 MOSCHINO","ULTRAVIOLET","VALENTINO BORN IN ROMA","VIVA LA JUICY","XX HUGO BOSS"].sort();
+
+let ventas = JSON.parse(localStorage.getItem('pg_ventas')) || [];
+let lotes = JSON.parse(localStorage.getItem('pg_lotes')) || ['Primer Lote','Segundo Lote','Tercer Lote','Cuarto Lote','Quinto Lote','Sexto Lote','Septimo Lote','Octavo Lote'];
+let editIdx = null;
+let pagoIdx = null;
+let filtroCartera = 'todos';
+let generoActual = 'caballero';
+
+
+function fmtInput(el){
+  let raw = el.value.replace(/\./g,'').replace(/[^0-9]/g,'');
+  if(raw===''){el.value='';return;}
+  el.value = Number(raw).toLocaleString('es-CO');
+}
+function getP(id){
+  return Number((document.getElementById(id).value||'0').replace(/\./g,'').replace(/[^0-9]/g,''))||0;
+}
+function setPV(id,val){
+  document.getElementById(id).value = val?Number(val).toLocaleString('es-CO'):'';
+}
+function save(){
+  localStorage.setItem('pg_ventas', JSON.stringify(ventas));
+  localStorage.setItem('pg_lotes', JSON.stringify(lotes));
+}
+
+function showPage(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  const tabs = ['dashboard','ventas','historial','cartera','lotes'];
+  document.querySelectorAll('.tab')[tabs.indexOf(p)].classList.add('active');
+  renderAll();
+}
+
+function llenarLocionSelect(sel, lista, val=''){
+  sel.innerHTML = lista.map(l=>`<option value="${l}" ${l===val?'selected':''}>${l}</option>`).join('');
+}
+
+function setGenero(g, btn){
+  generoActual = g;
+  document.querySelectorAll('.genero-toggle .genero-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  llenarLocionSelect(document.getElementById('f_locion'), g==='caballero'?LOCIONES_CABALLERO:LOCIONES_DAMA);
+}
+
+function setGeneroModal(g, btn){
+  document.getElementById('m_g_cab').classList.remove('active');
+  document.getElementById('m_g_dam').classList.remove('active');
+  btn.classList.add('active');
+  llenarLocionSelect(document.getElementById('m_locion'), g==='caballero'?LOCIONES_CABALLERO:LOCIONES_DAMA);
+}
+
+function llenarLotesSelect(sel, val=''){
+  sel.innerHTML = lotes.map(l=>`<option value="${l}" ${l===val?'selected':''}>${l}</option>`).join('');
+}
+
+function registrarVenta(){
+  const c = v=>document.getElementById(v).value.trim();
+  const n = v=>getP(v);
+  if(!c('f_cliente')||!c('f_lote')){
+    document.getElementById('msgVenta').style.color='#dc2626';
+    document.getElementById('msgVenta').textContent='⚠️ Cliente y Lote son obligatorios.';
+    return;
+  }
+  const cantidad = n('f_cantidad')||1;
+  const precio = n('f_precio');
+  const costo = n('f_costo');
+  const total = cantidad * precio;
+  const estado = c('f_estado');
+  const cuanto = n('f_cuanto') || total;
+  ventas.unshift({id:Date.now(),cliente:c('f_cliente'),lote:c('f_lote'),locion:c('f_locion'),cantidad,costo,precio,total,estado,cuanto,metodo:c('f_metodo'),fecha:new Date().toLocaleDateString('es-CO')});
+  save();
+  ['f_cliente','f_cuanto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f_cantidad').value='1';
+  document.getElementById('msgVenta').style.color='#16a34a';
+  document.getElementById('msgVenta').textContent='✅ Venta registrada correctamente.';
+  setTimeout(()=>document.getElementById('msgVenta').textContent='',3000);
+  renderAll();
+}
+
+function agregarLote(){
+  const n = document.getElementById('l_nombre').value.trim();
+  if(!n) return;
+  if(!lotes.includes(n)) lotes.push(n);
+  save();
+  document.getElementById('l_nombre').value='';
+  renderAll();
+  alert('Lote "'+n+'" creado ✅');
+}
+
+function fmt(n){return '$'+(n||0).toLocaleString('es-CO');}
+
+function renderAll(){
+  llenarLotesSelect(document.getElementById('f_lote'));
+  llenarLotesSelect(document.getElementById('m_lote'));
+  llenarLocionSelect(document.getElementById('f_locion'), generoActual==='caballero'?LOCIONES_CABALLERO:LOCIONES_DAMA);
+  const cl=[...new Set(ventas.map(v=>v.cliente))];
+  document.getElementById('clientesList').innerHTML=cl.map(c=>`<option value="${c}">`).join('');
+  renderDashboard();renderHistorial();renderCartera();renderLotes();
+}
+
+function renderDashboard(){
+  const totalVentas=ventas.reduce((a,v)=>a+v.total,0);
+  const porCobrar=ventas.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
+  const cobrado=ventas.filter(v=>v.estado==='Pago').reduce((a,v)=>a+v.total,0);
+  document.getElementById('statsCards').innerHTML=`
+    <div class="card blue"><div class="label">Ventas Totales</div><div class="value">${fmt(totalVentas)}</div></div>
+    <div class="card green"><div class="label">Cobrado</div><div class="value">${fmt(cobrado)}</div></div>
+    <div class="card red"><div class="label">Por Cobrar</div><div class="value">${fmt(porCobrar)}</div></div>
+    <div class="card"><div class="label">Clientes</div><div class="value">${new Set(ventas.map(v=>v.cliente)).size}</div></div>
+    <div class="card"><div class="label">Ventas</div><div class="value">${ventas.length}</div></div>
+    <div class="card"><div class="label">Lotes</div><div class="value">${lotes.length}</div></div>`;
+  document.getElementById('dashboardTabla').innerHTML=ventas.slice(0,10).map(v=>`<tr><td><strong>${v.cliente}</strong></td><td>${v.locion}</td><td>${v.lote}</td><td><strong>${fmt(v.total)}</strong></td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.metodo}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:30px;color:#a0aec0;">Sin ventas aún</td></tr>';
+}
+
+let histFiltro='';
+function filtrarHistorial(q){histFiltro=q.toLowerCase();renderHistorial();}
+function renderHistorial(){
+  let data=ventas;
+  if(histFiltro) data=data.filter(v=>v.cliente.toLowerCase().includes(histFiltro)||v.locion.toLowerCase().includes(histFiltro)||v.lote.toLowerCase().includes(histFiltro));
+  document.getElementById('historialTabla').innerHTML=data.map(v=>{
+    const ri=ventas.indexOf(v);
+    return `<tr><td><strong>${v.cliente}</strong></td><td>${v.lote}</td><td>${v.locion}</td><td>${v.cantidad}</td><td>${fmt(v.costo)}</td><td>${fmt(v.precio)}</td><td><strong>${fmt(v.total)}</strong></td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?fmt(v.cuanto):'-'}</td><td>${v.metodo}</td><td><button class="btn btn-primary btn-sm" onclick="abrirModal(${ri})">✏️</button>${v.estado==='Debe'?` <button class="btn btn-success btn-sm" onclick="abrirPagoModal(${ri})">💵 Pagó</button>`:''}</td></tr>`;
+  }).join('')||'<tr><td colspan="11" style="text-align:center;padding:30px;color:#a0aec0;">Sin resultados</td></tr>';
+}
+
+function filtrarCartera(f,btn){
+  filtroCartera=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCartera();
+}
+
+function renderCartera(){
+  const porCobrar=ventas.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
+  const ef=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Efectivo').reduce((a,v)=>a+v.total,0);
+  const nq=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Nequi').reduce((a,v)=>a+v.total,0);
+  const bn=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Banco').reduce((a,v)=>a+v.total,0);
+  document.getElementById('carteraCards').innerHTML=`
+    <div class="card red"><div class="label">Por Cobrar</div><div class="value">${fmt(porCobrar)}</div></div>
+    <div class="card green"><div class="label">Efectivo</div><div class="value">${fmt(ef)}</div></div>
+    <div class="card blue"><div class="label">Nequi</div><div class="value">${fmt(nq)}</div></div>
+    <div class="card"><div class="label">Banco</div><div class="value">${fmt(bn)}</div></div>`;
+  let data=ventas;
+  if(filtroCartera!=='todos') data=data.filter(v=>v.estado===filtroCartera);
+  document.getElementById('carteraTabla').innerHTML=data.map(v=>{
+    const ri=ventas.indexOf(v);
+    return `<tr><td><strong>${v.cliente}</strong></td><td>${v.lote}</td><td>${v.locion}</td><td>${fmt(v.total)}</td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?`<strong style="color:#dc2626">${fmt(v.cuanto)}</strong>`:'-'}</td><td>${v.metodo}</td><td>${v.estado==='Debe'?`<button class="btn btn-success btn-sm" onclick="abrirPagoModal(${ri})">💵 Pagó</button> `:''}<button class="btn btn-primary btn-sm" onclick="abrirModal(${ri})">✏️</button></td></tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:#a0aec0;">Sin registros</td></tr>';
+}
+
+function renderLotes(){
+  document.getElementById('lotesGrid').innerHTML=lotes.map(lote=>{
+    const lv=ventas.filter(v=>v.lote===lote);
+    const total=lv.reduce((a,v)=>a+v.total,0);
+    const cobrado=lv.filter(v=>v.estado==='Pago').reduce((a,v)=>a+v.total,0);
+    const debe=lv.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
+    const ef=lv.filter(v=>v.metodo==='Efectivo'&&v.estado==='Pago').reduce((a,v)=>a+v.total,0);
+    const nq=lv.filter(v=>v.metodo==='Nequi'&&v.estado==='Pago').reduce((a,v)=>a+v.total,0);
+    const costoTotal=lv.reduce((a,v)=>a+(v.costo*v.cantidad),0);
+    const ganancia=total-costoTotal;
+    return `<div class="lote-card"><div class="lote-header"><h3>📦 ${lote}</h3><p>${lv.length} ventas</p></div><div class="lote-body"><div class="lote-stat"><span class="s-label">Total vendido</span><span class="s-val">${fmt(total)}</span></div><div class="lote-stat"><span class="s-label">💰 Ganancia</span><span class="s-val" style="color:#7c3aed;font-size:15px;font-weight:800">${fmt(ganancia)}</span></div><div class="lote-stat"><span class="s-label">✅ Cobrado</span><span class="s-val" style="color:#16a34a">${fmt(cobrado)}</span></div><div class="lote-stat"><span class="s-label">🔴 Por cobrar</span><span class="s-val" style="color:#dc2626">${fmt(debe)}</span></div><div class="lote-stat"><span class="s-label">💵 Efectivo</span><span class="s-val">${fmt(ef)}</span></div><div class="lote-stat"><span class="s-label">📱 Nequi</span><span class="s-val">${fmt(nq)}</span></div></div></div>`;
+  }).join('');
+}
+
+function abrirModal(i){
+  editIdx=i;
+  const v=ventas[i];
+  document.getElementById('m_cliente').value=v.cliente;
+  llenarLotesSelect(document.getElementById('m_lote'),v.lote);
+  const esCab=LOCIONES_CABALLERO.includes(v.locion);
+  if(esCab){document.getElementById('m_g_cab').classList.add('active');document.getElementById('m_g_dam').classList.remove('active');llenarLocionSelect(document.getElementById('m_locion'),LOCIONES_CABALLERO,v.locion);}
+  else{document.getElementById('m_g_dam').classList.add('active');document.getElementById('m_g_cab').classList.remove('active');llenarLocionSelect(document.getElementById('m_locion'),LOCIONES_DAMA,v.locion);}
+  document.getElementById('m_cantidad').value=v.cantidad; setPV('m_costo',v.costo); setPV('m_precio',v.precio); setPV('m_cuanto',v.cuanto);
+  // costo set above
+  // precio set above
+  document.getElementById('m_estado').value=v.estado;
+  // cuanto set above
+  document.getElementById('m_metodo').value=v.metodo;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function cerrarModal(){document.getElementById('modalOverlay').classList.remove('open');editIdx=null;}
+function guardarEdicion(){
+  if(editIdx===null) return;
+  const v=ventas[editIdx];
+  v.cliente=document.getElementById('m_cliente').value;
+  v.lote=document.getElementById('m_lote').value;
+  v.locion=document.getElementById('m_locion').value;
+  v.cantidad=Number(document.getElementById('m_cantidad').value)||1;
+  v.costo=getP('m_costo');
+  v.precio=getP('m_precio');
+  v.total=v.cantidad*v.precio;
+  v.estado=document.getElementById('m_estado').value;
+  v.cuanto=getP('m_cuanto');
+  v.metodo=document.getElementById('m_metodo').value;
+  save();cerrarModal();renderAll();
+}
+function eliminarVenta(){
+  if(editIdx===null) return;
+  if(!confirm('¿Eliminar esta venta?')) return;
+  ventas.splice(editIdx,1);save();cerrarModal();renderAll();
+}
+function abrirPagoModal(i){
+  pagoIdx=i;
+  const v=ventas[i];
+  document.getElementById('pagoInfo').textContent=`${v.cliente} — ${v.locion} — ${fmt(v.cuanto)} pendientes`;
+  document.getElementById('pagoModal').classList.add('open');
+}
+function cerrarPagoModal(){document.getElementById('pagoModal').classList.remove('open');pagoIdx=null;}
+function confirmarPago(){
+  if(pagoIdx===null) return;
+  ventas[pagoIdx].estado='Pago';
+  ventas[pagoIdx].cuanto=ventas[pagoIdx].total;
+  ventas[pagoIdx].metodo=document.getElementById('p_metodo').value;
+  save();cerrarPagoModal();renderAll();
+}
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')cerrarModal();});
+document.getElementById('pagoModal').addEventListener('click',e=>{if(e.target.id==='pagoModal')cerrarPagoModal();});
+
+function importarExcel(){
+  const file = document.getElementById('excelFile').files[0];
+  const msg = document.getElementById('msgImport');
+  if(!file){msg.style.color='#dc2626';msg.textContent='⚠️ Selecciona un archivo primero.';return;}
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      let importadas = 0;
+      wb.SheetNames.forEach(sheetName=>{
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if(!lotes.includes(sheetName)) lotes.push(sheetName);
+        rows.forEach(row=>{
+          // columnas: CLIENTE(0) CANTIDAD(1) TIPO(2) VALOR_MAYOR(3) VALOR_TOTAL(4) ESTADO(5) CUANTO(6) METODO(7)
+          const cliente = String(row[0]||'').trim();
+          const skip = ['','CLIENTE','TOTAL','LOCIONES','LOCION','LOCIONE'];
+          if(skip.includes(cliente.toUpperCase())) return;
+          const cantidad = Number(row[1])||1;
+          const locion = String(row[2]||'').trim();
+          const costo = Number(row[3])||0;
+          const precio = Number(row[4])||0;
+          const estadoRaw = String(row[5]||'').trim().toLowerCase();
+          const estado = estadoRaw==='pago'?'Pago':'Debe';
+          const cuanto = Number(row[6])||precio*cantidad;
+          const metodoRaw = String(row[7]||'').trim();
+          const metodo = metodoRaw||'Efectivo';
+          const total = precio * cantidad || cuanto;
+          ventas.push({id:Date.now()+importadas,cliente,lote:sheetName,locion,cantidad,costo,precio,total,estado,cuanto,metodo,fecha:new Date().toLocaleDateString('es-CO')});
+          importadas++;
+        });
+      });
+      save();
+      renderAll();
+      msg.style.color='#16a34a';
+      msg.textContent=`✅ Importadas ${importadas} ventas de ${wb.SheetNames.length} lotes correctamente.`;
+    }catch(err){
+      msg.style.color='#dc2626';
+      msg.textContent='❌ Error al leer el archivo: '+err.message;
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function borrarTodo(){
+  if(!confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.')) return;
+  ventas=[];
+  lotes=['Primer Lote','Segundo Lote','Tercer Lote','Cuarto Lote','Quinto Lote','Sexto Lote','Septimo Lote','Octavo Lote'];
+  save();renderAll();
+  document.getElementById('msgImport').style.color='#dc2626';
+  document.getElementById('msgImport').textContent='🗑️ Datos borrados.';
+}
+
+renderAll();
+</script>
+</body>
+</html>
