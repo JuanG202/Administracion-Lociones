@@ -206,12 +206,58 @@ const LOCIONES_CABALLERO = ["1 millon Lucky","212","212 VIP","Orientica Oud Safr
 
 const LOCIONES_DAMA = ["Can Can","CH","Coco Mademoiselle","Coconut passion","Delina","Diesel Blanca","Heiris scandal","La vida es bella elixir","Light Blue","Omnia coral","Thank Next","Loquito por Ti","Paris Hilton tradicional","Good Girl","Deseos Victoria Secret","Sexy Now","Love Spell","Deseos","Pink Dream","Pink Fruits","Scandal","Angel","Dubay","Sofia","Coury de Yambal","Bond No 9 Dubai","Lataffa Yara","Carolina","Heires","Bond No 9","360","Bomba de Carolina Herrera","Tafa Noble","Kim Kardashian","Rap Lauren","Maya Tafa","Yumyum","212 NYC","212 SEXY","212 VIP","212 VIP CLUB","212 HEROES FOREVER YOUNG","212 VIP PARTY FEVER","212 VIP ROSE","212 VIP ROSE RED","212 VIP WILD PARTY","212 VIP WINS","360°","360° CORAL","360 PURPLE","5TA. AVENIDA","AGUA DEL SOL","AMARIGE","AMOR AMOR","AMBER OUD GOLD AL HARAMAIN","ANAIS ANAIS","ANGEL OU DEMON","ANGEL OU DEMON SECRET","ANIMAL","AQUA DE OLYMPEA","ARABIANS","ARABIANS TONKA","ACQUA DI GIO","BACCARAT ROUGE 540","BFF KIM KARDASHIAN","BLACK XS","BLACK XS LOS ANGELES","BOMBON","BOMBSHELL","BOND SIGNATURE NO. 9","BUBBLE GUM MOSCHINO","BURBERRY LONDON","BURBERRY HER","CLOUD ARIANA GRANDE","CH AFRICA","CH AFRIKA","CH GOOD GIRL","CH GOOD GIRL VELVET","CH L'EAU","CH SUBLIME","CHANCE CHANEL","CHANCE EAU TENDRE","CHANEL NO. 5","CIELO YAMBAL","CK ONE SHOK","DAY DREAMS","DIAMANTES BLANCOS","EAU D LACOSTE SENSUELLE","ELIXIR BY SHAKIRA","ED HARDY","ESCADA BLOOSON MIAMI","ESCADA BORD IN PARADISSE","ESCADA CELEBRATE NOW","ESCADA FIESTA CARIOCA","ESCADA MOON SPARKLE","ESCADA OCEAN LOUNGE","ESCADA PARADISSE","ESCADA FLOR DEL SOL","ESCADA SORBETTO ROSSO","ESCADA SUMMER TURQUOISE","ESCADA TAJ SUNSET","ESCADA TAJ SUNSET HEAT","EUPHORIA DEEP","FANTASY","FAME PACO RABANNE","GAIA","GOLD FRESH MOSCHINO","GUCCI BAMBOO","GUCCI RUSH","HELLO KITTY","HUGO BOSS ORANGE","HUGO BOSS THE SCENT","IL ROSSO","J'ADORE","L.12.12 POUR ELLE NATUR","L.12.12 POUR ELLE SPARKLING","L'EXTASE NINA RICCI","LACOSTE TOUCH OF PINK","LADY GAGA FAME","LADY MILLION","LADY MILLION LUCKY","LADY MILLION PRIVE","MIDNIGHT FANTASY","MOSCHINO FUNNY","NARCISE","OLYMPEA","OMNIA AMETHYSTE","OMNIA CRYSTALLINE","OMNIA PARAIBA","ORGANZA","OUR MOMENT ONE DIRECTION","PARIS HILTON CAN CAN","PARIS HILTON CAN CAN BURLESQUE","PARIS HILTON DAZZLE","PARIS HILTON HEIRESS","PARIS H PASSPORT PARIS","PARIS H PLATINUM RUSH","PARIS HILTON SIREN","PARIS HILTON WHITE LOVE","RALPH LAUREN","SELENA GOMEZ","SI ARMANI","SOFIA VERGARA","TOY 2 MOSCHINO","ULTRAVIOLET","VALENTINO BORN IN ROMA","VIVA LA JUICY","XX HUGO BOSS"].sort();
 
-let ventas = JSON.parse(localStorage.getItem('pg_ventas')) || [];
-let lotes = JSON.parse(localStorage.getItem('pg_lotes')) || ['Primer Lote','Segundo Lote','Tercer Lote','Cuarto Lote','Quinto Lote','Sexto Lote','Septimo Lote','Octavo Lote'];
+const API = "http://localhost:5000/api";
+
+let ventas = [];
+let lotes = [];
+
 let editIdx = null;
 let pagoIdx = null;
 let filtroCartera = 'todos';
 let generoActual = 'caballero';
+
+async function cargarVentas() {
+    try {
+        const res = await fetch(`${API}/ventas`);
+
+        if (!res.ok) {
+            throw new Error("Error al cargar las ventas");
+        }
+
+        ventas = await res.json();
+
+    } catch (error) {
+        console.error(error);
+        ventas = [];
+    }
+}
+
+async function cargarLotes() {
+    try {
+        const res = await fetch(`${API}/lotes`);
+
+        if (!res.ok) {
+            throw new Error("Error al cargar los lotes");
+        }
+
+        lotes = await res.json();
+
+        // Si el backend devuelve objetos
+        if (lotes.length && typeof lotes[0] === "object") {
+            lotes = lotes.map(l => l.nombre);
+        }
+
+    } catch (error) {
+        console.error(error);
+        lotes = [];
+    }
+}
+
+async function cargarDatos() {
+    await cargarLotes();
+    await cargarVentas();
+    renderAll();
+}
 
 
 function fmtInput(el){
@@ -225,18 +271,25 @@ function getP(id){
 function setPV(id,val){
   document.getElementById(id).value = val?Number(val).toLocaleString('es-CO'):'';
 }
-function save(){
-  localStorage.setItem('pg_ventas', JSON.stringify(ventas));
-  localStorage.setItem('pg_lotes', JSON.stringify(lotes));
-}
+// Ya no se usa localStorage porque la información se guarda en MongoDB.
 
-function showPage(p){
+async function showPage(p){
+
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+
   document.getElementById('page-'+p).classList.add('active');
+
   const tabs = ['dashboard','ventas','historial','cartera','lotes'];
+
   document.querySelectorAll('.tab')[tabs.indexOf(p)].classList.add('active');
+
+  // Siempre recarga la información desde el backend
+  await cargarVentas();
+  await cargarLotes();
+
   renderAll();
+
 }
 
 function llenarLocionSelect(sel, lista, val=''){
@@ -257,227 +310,968 @@ function setGeneroModal(g, btn){
   llenarLocionSelect(document.getElementById('m_locion'), g==='caballero'?LOCIONES_CABALLERO:LOCIONES_DAMA);
 }
 
-function llenarLotesSelect(sel, val=''){
-  sel.innerHTML = lotes.map(l=>`<option value="${l}" ${l===val?'selected':''}>${l}</option>`).join('');
+function llenarLotesSelect(sel, val = '') {
+  sel.innerHTML = lotes
+    .map(l => `<option value="${l}" ${l === val ? 'selected' : ''}>${l}</option>`)
+    .join('');
 }
 
-function registrarVenta(){
-  const c = v=>document.getElementById(v).value.trim();
-  const n = v=>getP(v);
-  if(!c('f_cliente')||!c('f_lote')){
-    document.getElementById('msgVenta').style.color='#dc2626';
-    document.getElementById('msgVenta').textContent='⚠️ Cliente y Lote son obligatorios.';
+async function registrarVenta() {
+
+  const c = v => document.getElementById(v).value.trim();
+  const n = v => getP(v);
+
+  if (!c('f_cliente') || !c('f_lote')) {
+    document.getElementById('msgVenta').style.color = '#dc2626';
+    document.getElementById('msgVenta').textContent = '⚠️ Cliente y Lote son obligatorios.';
     return;
   }
-  const cantidad = n('f_cantidad')||1;
+
+  const cantidad = n('f_cantidad') || 1;
   const precio = n('f_precio');
   const costo = n('f_costo');
   const total = cantidad * precio;
   const estado = c('f_estado');
   const cuanto = n('f_cuanto') || total;
-  ventas.unshift({id:Date.now(),cliente:c('f_cliente'),lote:c('f_lote'),locion:c('f_locion'),cantidad,costo,precio,total,estado,cuanto,metodo:c('f_metodo'),fecha:new Date().toLocaleDateString('es-CO')});
-  save();
-  ['f_cliente','f_cuanto'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f_cantidad').value='1';
-  document.getElementById('msgVenta').style.color='#16a34a';
-  document.getElementById('msgVenta').textContent='✅ Venta registrada correctamente.';
-  setTimeout(()=>document.getElementById('msgVenta').textContent='',3000);
-  renderAll();
+
+  const venta = {
+    cliente: c('f_cliente'),
+    lote: c('f_lote'),
+    locion: c('f_locion'),
+    cantidad,
+    costo,
+    precio,
+    total,
+    estado,
+    cuanto,
+    metodo: c('f_metodo')
+  };
+
+  try {
+
+    const res = await fetch(`${API}/ventas`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(venta)
+    });
+
+    if (!res.ok) {
+      throw new Error("Error al registrar la venta");
+    }
+
+    await cargarVentas();
+
+    ['f_cliente', 'f_cuanto'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+
+    document.getElementById('f_cantidad').value = '1';
+
+    document.getElementById('msgVenta').style.color = '#16a34a';
+    document.getElementById('msgVenta').textContent = '✅ Venta registrada correctamente.';
+
+    setTimeout(() => {
+      document.getElementById('msgVenta').textContent = '';
+    }, 3000);
+
+    renderAll();
+
+  } catch (error) {
+
+    console.error(error);
+
+    document.getElementById('msgVenta').style.color = '#dc2626';
+    document.getElementById('msgVenta').textContent = '❌ Error al registrar la venta.';
+  }
+
 }
 
-function agregarLote(){
-  const n = document.getElementById('l_nombre').value.trim();
-  if(!n) return;
-  if(!lotes.includes(n)) lotes.push(n);
-  save();
-  document.getElementById('l_nombre').value='';
-  renderAll();
-  alert('Lote "'+n+'" creado ✅');
+async function agregarLote() {
+
+  const nombre = document.getElementById('l_nombre').value.trim();
+
+  if (!nombre) return;
+
+  try {
+
+    const res = await fetch(`${API}/lotes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        nombre
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error("No fue posible crear el lote");
+    }
+
+    await cargarLotes();
+
+    document.getElementById('l_nombre').value = '';
+
+    renderAll();
+
+    alert(`Lote "${nombre}" creado correctamente.`);
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Error al crear el lote.");
+
+  }
+
 }
 
-function fmt(n){return '$'+(n||0).toLocaleString('es-CO');}
+function fmt(n) {
+  return '$' + (n || 0).toLocaleString('es-CO');
+}
 
-function renderAll(){
+function renderAll() {
+
   llenarLotesSelect(document.getElementById('f_lote'));
   llenarLotesSelect(document.getElementById('m_lote'));
-  llenarLocionSelect(document.getElementById('f_locion'), generoActual==='caballero'?LOCIONES_CABALLERO:LOCIONES_DAMA);
-  const cl=[...new Set(ventas.map(v=>v.cliente))];
-  document.getElementById('clientesList').innerHTML=cl.map(c=>`<option value="${c}">`).join('');
-  renderDashboard();renderHistorial();renderCartera();renderLotes();
+
+  llenarLocionSelect(
+    document.getElementById('f_locion'),
+    generoActual === 'caballero'
+      ? LOCIONES_CABALLERO
+      : LOCIONES_DAMA
+  );
+
+  const clientes = [...new Set(ventas.map(v => v.cliente))];
+
+  document.getElementById('clientesList').innerHTML =
+    clientes.map(c => `<option value="${c}">`).join('');
+
+  renderDashboard();
+  renderHistorial();
+  renderCartera();
+  renderLotes();
+
 }
 
 function renderDashboard(){
-  const totalVentas=ventas.reduce((a,v)=>a+v.total,0);
-  const porCobrar=ventas.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
-  const cobrado=ventas.filter(v=>v.estado==='Pago').reduce((a,v)=>a+v.total,0);
-  document.getElementById('statsCards').innerHTML=`
-    <div class="card blue"><div class="label">Ventas Totales</div><div class="value">${fmt(totalVentas)}</div></div>
-    <div class="card green"><div class="label">Cobrado</div><div class="value">${fmt(cobrado)}</div></div>
-    <div class="card red"><div class="label">Por Cobrar</div><div class="value">${fmt(porCobrar)}</div></div>
-    <div class="card"><div class="label">Clientes</div><div class="value">${new Set(ventas.map(v=>v.cliente)).size}</div></div>
-    <div class="card"><div class="label">Ventas</div><div class="value">${ventas.length}</div></div>
-    <div class="card"><div class="label">Lotes</div><div class="value">${lotes.length}</div></div>`;
-  document.getElementById('dashboardTabla').innerHTML=ventas.slice(0,10).map(v=>`<tr><td><strong>${v.cliente}</strong></td><td>${v.locion}</td><td>${v.lote}</td><td><strong>${fmt(v.total)}</strong></td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.metodo}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:30px;color:#a0aec0;">Sin ventas aún</td></tr>';
+
+  const totalVentas = ventas.reduce((a,v)=>a+v.total,0);
+  const porCobrar = ventas
+      .filter(v=>v.estado==="Debe")
+      .reduce((a,v)=>a+v.cuanto,0);
+
+  const cobrado = ventas
+      .filter(v=>v.estado==="Pago")
+      .reduce((a,v)=>a+v.total,0);
+
+  document.getElementById("statsCards").innerHTML = `
+    <div class="card blue">
+      <div class="label">Ventas Totales</div>
+      <div class="value">${fmt(totalVentas)}</div>
+    </div>
+
+    <div class="card green">
+      <div class="label">Cobrado</div>
+      <div class="value">${fmt(cobrado)}</div>
+    </div>
+
+    <div class="card red">
+      <div class="label">Por Cobrar</div>
+      <div class="value">${fmt(porCobrar)}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Clientes</div>
+      <div class="value">${new Set(ventas.map(v=>v.cliente)).size}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Ventas</div>
+      <div class="value">${ventas.length}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Lotes</div>
+      <div class="value">${lotes.length}</div>
+    </div>
+  `;
+
+  document.getElementById("dashboardTabla").innerHTML =
+      ventas.slice(0,10).map(v=>`
+        <tr>
+          <td><strong>${v.cliente}</strong></td>
+          <td>${v.locion}</td>
+          <td>${v.lote}</td>
+          <td><strong>${fmt(v.total)}</strong></td>
+          <td>
+            <span class="badge ${v.estado.toLowerCase()}">
+              ${v.estado==="Pago" ? "✅ Pago" : "🔴 Debe"}
+            </span>
+          </td>
+          <td>${v.metodo}</td>
+        </tr>
+      `).join("")
+      ||
+      `<tr>
+          <td colspan="6" style="text-align:center;padding:30px;color:#a0aec0;">
+              Sin ventas aún
+          </td>
+       </tr>`;
 }
 
-let histFiltro='';
-function filtrarHistorial(q){histFiltro=q.toLowerCase();renderHistorial();}
+let histFiltro="";
+
+function filtrarHistorial(q){
+    histFiltro=q.toLowerCase();
+    renderHistorial();
+}
+
 function renderHistorial(){
-  let data=ventas;
-  if(histFiltro) data=data.filter(v=>v.cliente.toLowerCase().includes(histFiltro)||v.locion.toLowerCase().includes(histFiltro)||v.lote.toLowerCase().includes(histFiltro));
-  document.getElementById('historialTabla').innerHTML=data.map(v=>{
-    const ri=ventas.indexOf(v);
-    return `<tr><td><strong>${v.cliente}</strong></td><td>${v.lote}</td><td>${v.locion}</td><td>${v.cantidad}</td><td>${fmt(v.costo)}</td><td>${fmt(v.precio)}</td><td><strong>${fmt(v.total)}</strong></td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?fmt(v.cuanto):'-'}</td><td>${v.metodo}</td><td><button class="btn btn-primary btn-sm" onclick="abrirModal(${ri})">✏️</button>${v.estado==='Debe'?` <button class="btn btn-success btn-sm" onclick="abrirPagoModal(${ri})">💵 Pagó</button>`:''}</td></tr>`;
-  }).join('')||'<tr><td colspan="11" style="text-align:center;padding:30px;color:#a0aec0;">Sin resultados</td></tr>';
+
+    let data = ventas;
+
+    if(histFiltro){
+
+        data = data.filter(v =>
+            v.cliente.toLowerCase().includes(histFiltro) ||
+            v.locion.toLowerCase().includes(histFiltro) ||
+            v.lote.toLowerCase().includes(histFiltro)
+        );
+
+    }
+
+    document.getElementById("historialTabla").innerHTML =
+        data.map(v=>`
+
+        <tr>
+
+            <td><strong>${v.cliente}</strong></td>
+
+            <td>${v.lote}</td>
+
+            <td>${v.locion}</td>
+
+            <td>${v.cantidad}</td>
+
+            <td>${fmt(v.costo)}</td>
+
+            <td>${fmt(v.precio)}</td>
+
+            <td><strong>${fmt(v.total)}</strong></td>
+
+            <td>
+                <span class="badge ${v.estado.toLowerCase()}">
+                    ${v.estado==="Pago" ? "✅ Pago" : "🔴 Debe"}
+                </span>
+            </td>
+
+            <td>${v.estado==="Debe" ? fmt(v.cuanto) : "-"}</td>
+
+            <td>${v.metodo}</td>
+
+            <td>
+
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick="abrirModal('${v._id}')">
+
+                    ✏️
+
+                </button>
+
+                ${
+                    v.estado==="Debe"
+                    ?
+                    `<button
+                        class="btn btn-success btn-sm"
+                        onclick="abrirPagoModal('${v._id}')">
+
+                        💵 Pagó
+
+                    </button>`
+                    :
+                    ""
+                }
+
+            </td>
+
+        </tr>
+
+        `).join("")
+        ||
+        `<tr>
+            <td colspan="11" style="text-align:center;padding:30px;color:#a0aec0;">
+                Sin resultados
+            </td>
+        </tr>`;
 }
 
 function filtrarCartera(f,btn){
-  filtroCartera=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderCartera();
+
+    filtroCartera=f;
+
+    document.querySelectorAll(".filter-btn")
+        .forEach(b=>b.classList.remove("active"));
+
+    btn.classList.add("active");
+
+    renderCartera();
+
 }
 
 function renderCartera(){
-  const porCobrar=ventas.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
-  const ef=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Efectivo').reduce((a,v)=>a+v.total,0);
-  const nq=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Nequi').reduce((a,v)=>a+v.total,0);
-  const bn=ventas.filter(v=>v.estado==='Pago'&&v.metodo==='Banco').reduce((a,v)=>a+v.total,0);
-  document.getElementById('carteraCards').innerHTML=`
-    <div class="card red"><div class="label">Por Cobrar</div><div class="value">${fmt(porCobrar)}</div></div>
-    <div class="card green"><div class="label">Efectivo</div><div class="value">${fmt(ef)}</div></div>
-    <div class="card blue"><div class="label">Nequi</div><div class="value">${fmt(nq)}</div></div>
-    <div class="card"><div class="label">Banco</div><div class="value">${fmt(bn)}</div></div>`;
-  let data=ventas;
-  if(filtroCartera!=='todos') data=data.filter(v=>v.estado===filtroCartera);
-  document.getElementById('carteraTabla').innerHTML=data.map(v=>{
-    const ri=ventas.indexOf(v);
-    return `<tr><td><strong>${v.cliente}</strong></td><td>${v.lote}</td><td>${v.locion}</td><td>${fmt(v.total)}</td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?`<strong style="color:#dc2626">${fmt(v.cuanto)}</strong>`:'-'}</td><td>${v.metodo}</td><td>${v.estado==='Debe'?`<button class="btn btn-success btn-sm" onclick="abrirPagoModal(${ri})">💵 Pagó</button> `:''}<button class="btn btn-primary btn-sm" onclick="abrirModal(${ri})">✏️</button></td></tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:#a0aec0;">Sin registros</td></tr>';
+
+    const porCobrar = ventas
+        .filter(v => v.estado === 'Debe')
+        .reduce((a,v)=>a+v.cuanto,0);
+
+    const ef = ventas
+        .filter(v=>v.estado==='Pago' && v.metodo==='Efectivo')
+        .reduce((a,v)=>a+v.total,0);
+
+    const nq = ventas
+        .filter(v=>v.estado==='Pago' && v.metodo==='Nequi')
+        .reduce((a,v)=>a+v.total,0);
+
+    const bn = ventas
+        .filter(v=>v.estado==='Pago' && v.metodo==='Banco')
+        .reduce((a,v)=>a+v.total,0);
+
+    document.getElementById('carteraCards').innerHTML = `
+        <div class="card red">
+            <div class="label">Por Cobrar</div>
+            <div class="value">${fmt(porCobrar)}</div>
+        </div>
+
+        <div class="card green">
+            <div class="label">Efectivo</div>
+            <div class="value">${fmt(ef)}</div>
+        </div>
+
+        <div class="card blue">
+            <div class="label">Nequi</div>
+            <div class="value">${fmt(nq)}</div>
+        </div>
+
+        <div class="card">
+            <div class="label">Banco</div>
+            <div class="value">${fmt(bn)}</div>
+        </div>
+    `;
+
+    let data = ventas;
+
+    if(filtroCartera !== 'todos'){
+        data = data.filter(v => v.estado === filtroCartera);
+    }
+
+    document.getElementById('carteraTabla').innerHTML =
+        data.map(v => `
+
+        <tr>
+
+            <td><strong>${v.cliente}</strong></td>
+
+            <td>${v.lote}</td>
+
+            <td>${v.locion}</td>
+
+            <td>${fmt(v.total)}</td>
+
+            <td>
+                <span class="badge ${v.estado.toLowerCase()}">
+                    ${v.estado === 'Pago' ? '✅ Pago' : '🔴 Debe'}
+                </span>
+            </td>
+
+            <td>
+                ${
+                    v.estado === 'Debe'
+                    ? `<strong style="color:#dc2626">${fmt(v.cuanto)}</strong>`
+                    : '-'
+                }
+            </td>
+
+            <td>${v.metodo}</td>
+
+            <td>
+
+                ${
+                    v.estado === 'Debe'
+                    ?
+                    `<button
+                        class="btn btn-success btn-sm"
+                        onclick="abrirPagoModal('${v._id}')">
+                        💵 Pagó
+                    </button>`
+                    :
+                    ""
+                }
+
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick="abrirModal('${v._id}')">
+
+                    ✏️
+
+                </button>
+
+            </td>
+
+        </tr>
+
+        `).join('')
+
+        ||
+
+        `<tr>
+            <td colspan="8"
+                style="text-align:center;padding:30px;color:#a0aec0;">
+                Sin registros
+            </td>
+        </tr>`;
 }
+
 
 function renderLotes(){
-  document.getElementById('lotesGrid').innerHTML=lotes.map(lote=>{
-    const lv=ventas.filter(v=>v.lote===lote);
-    const total=lv.reduce((a,v)=>a+v.total,0);
-    const cobrado=lv.filter(v=>v.estado==='Pago').reduce((a,v)=>a+v.total,0);
-    const debe=lv.filter(v=>v.estado==='Debe').reduce((a,v)=>a+v.cuanto,0);
-    const ef=lv.filter(v=>v.metodo==='Efectivo'&&v.estado==='Pago').reduce((a,v)=>a+v.total,0);
-    const nq=lv.filter(v=>v.metodo==='Nequi'&&v.estado==='Pago').reduce((a,v)=>a+v.total,0);
-    const costoTotal=lv.reduce((a,v)=>a+(v.costo*v.cantidad),0);
-    const ganancia=total-costoTotal;
-    return `<div class="lote-card"><div class="lote-header"><h3>📦 ${lote}</h3><p>${lv.length} ventas</p></div><div class="lote-body"><div class="lote-stat"><span class="s-label">Total vendido</span><span class="s-val">${fmt(total)}</span></div><div class="lote-stat"><span class="s-label">💰 Ganancia</span><span class="s-val" style="color:#7c3aed;font-size:15px;font-weight:800">${fmt(ganancia)}</span></div><div class="lote-stat"><span class="s-label">✅ Cobrado</span><span class="s-val" style="color:#16a34a">${fmt(cobrado)}</span></div><div class="lote-stat"><span class="s-label">🔴 Por cobrar</span><span class="s-val" style="color:#dc2626">${fmt(debe)}</span></div><div class="lote-stat"><span class="s-label">💵 Efectivo</span><span class="s-val">${fmt(ef)}</span></div><div class="lote-stat"><span class="s-label">📱 Nequi</span><span class="s-val">${fmt(nq)}</span></div></div></div>`;
-  }).join('');
+
+    document.getElementById('lotesGrid').innerHTML = lotes.map(lote=>{
+
+        const lv = ventas.filter(v=>v.lote===lote);
+
+        const total = lv.reduce((a,v)=>a+v.total,0);
+
+        const cobrado = lv
+            .filter(v=>v.estado==='Pago')
+            .reduce((a,v)=>a+v.total,0);
+
+        const debe = lv
+            .filter(v=>v.estado==='Debe')
+            .reduce((a,v)=>a+v.cuanto,0);
+
+        const ef = lv
+            .filter(v=>v.estado==='Pago' && v.metodo==='Efectivo')
+            .reduce((a,v)=>a+v.total,0);
+
+        const nq = lv
+            .filter(v=>v.estado==='Pago' && v.metodo==='Nequi')
+            .reduce((a,v)=>a+v.total,0);
+
+        const costoTotal = lv.reduce((a,v)=>a+(v.costo*v.cantidad),0);
+
+        const ganancia = total - costoTotal;
+
+        return `
+        <div class="lote-card">
+
+            <div class="lote-header">
+                <h3>📦 ${lote}</h3>
+                <p>${lv.length} ventas</p>
+            </div>
+
+            <div class="lote-body">
+
+                <div class="lote-stat">
+                    <span class="s-label">Total vendido</span>
+                    <span class="s-val">${fmt(total)}</span>
+                </div>
+
+                <div class="lote-stat">
+                    <span class="s-label">💰 Ganancia</span>
+                    <span class="s-val" style="color:#7c3aed;font-size:15px;font-weight:800">
+                        ${fmt(ganancia)}
+                    </span>
+                </div>
+
+                <div class="lote-stat">
+                    <span class="s-label">✅ Cobrado</span>
+                    <span class="s-val" style="color:#16a34a">
+                        ${fmt(cobrado)}
+                    </span>
+                </div>
+
+                <div class="lote-stat">
+                    <span class="s-label">🔴 Por cobrar</span>
+                    <span class="s-val" style="color:#dc2626">
+                        ${fmt(debe)}
+                    </span>
+                </div>
+
+                <div class="lote-stat">
+                    <span class="s-label">💵 Efectivo</span>
+                    <span class="s-val">${fmt(ef)}</span>
+                </div>
+
+                <div class="lote-stat">
+                    <span class="s-label">📱 Nequi</span>
+                    <span class="s-val">${fmt(nq)}</span>
+                </div>
+
+            </div>
+
+        </div>`;
+    }).join('');
+
 }
 
-function abrirModal(i){
-  editIdx=i;
-  const v=ventas[i];
-  document.getElementById('m_cliente').value=v.cliente;
-  llenarLotesSelect(document.getElementById('m_lote'),v.lote);
-  const esCab=LOCIONES_CABALLERO.includes(v.locion);
-  if(esCab){document.getElementById('m_g_cab').classList.add('active');document.getElementById('m_g_dam').classList.remove('active');llenarLocionSelect(document.getElementById('m_locion'),LOCIONES_CABALLERO,v.locion);}
-  else{document.getElementById('m_g_dam').classList.add('active');document.getElementById('m_g_cab').classList.remove('active');llenarLocionSelect(document.getElementById('m_locion'),LOCIONES_DAMA,v.locion);}
-  document.getElementById('m_cantidad').value=v.cantidad; setPV('m_costo',v.costo); setPV('m_precio',v.precio); setPV('m_cuanto',v.cuanto);
-  // costo set above
-  // precio set above
-  document.getElementById('m_estado').value=v.estado;
-  // cuanto set above
-  document.getElementById('m_metodo').value=v.metodo;
-  document.getElementById('modalOverlay').classList.add('open');
-}
-function cerrarModal(){document.getElementById('modalOverlay').classList.remove('open');editIdx=null;}
-function guardarEdicion(){
-  if(editIdx===null) return;
-  const v=ventas[editIdx];
-  v.cliente=document.getElementById('m_cliente').value;
-  v.lote=document.getElementById('m_lote').value;
-  v.locion=document.getElementById('m_locion').value;
-  v.cantidad=Number(document.getElementById('m_cantidad').value)||1;
-  v.costo=getP('m_costo');
-  v.precio=getP('m_precio');
-  v.total=v.cantidad*v.precio;
-  v.estado=document.getElementById('m_estado').value;
-  v.cuanto=getP('m_cuanto');
-  v.metodo=document.getElementById('m_metodo').value;
-  save();cerrarModal();renderAll();
-}
-function eliminarVenta(){
-  if(editIdx===null) return;
-  if(!confirm('¿Eliminar esta venta?')) return;
-  ventas.splice(editIdx,1);save();cerrarModal();renderAll();
-}
-function abrirPagoModal(i){
-  pagoIdx=i;
-  const v=ventas[i];
-  document.getElementById('pagoInfo').textContent=`${v.cliente} — ${v.locion} — ${fmt(v.cuanto)} pendientes`;
-  document.getElementById('pagoModal').classList.add('open');
-}
-function cerrarPagoModal(){document.getElementById('pagoModal').classList.remove('open');pagoIdx=null;}
-function confirmarPago(){
-  if(pagoIdx===null) return;
-  ventas[pagoIdx].estado='Pago';
-  ventas[pagoIdx].cuanto=ventas[pagoIdx].total;
-  ventas[pagoIdx].metodo=document.getElementById('p_metodo').value;
-  save();cerrarPagoModal();renderAll();
-}
-document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')cerrarModal();});
-document.getElementById('pagoModal').addEventListener('click',e=>{if(e.target.id==='pagoModal')cerrarPagoModal();});
+function abrirModal(id){
 
-function importarExcel(){
-  const file = document.getElementById('excelFile').files[0];
-  const msg = document.getElementById('msgImport');
-  if(!file){msg.style.color='#dc2626';msg.textContent='⚠️ Selecciona un archivo primero.';return;}
-  const reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      const wb = XLSX.read(e.target.result, {type:'binary'});
-      let importadas = 0;
-      wb.SheetNames.forEach(sheetName=>{
-        const ws = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-        if(!lotes.includes(sheetName)) lotes.push(sheetName);
-        rows.forEach(row=>{
-          // columnas: CLIENTE(0) CANTIDAD(1) TIPO(2) VALOR_MAYOR(3) VALOR_TOTAL(4) ESTADO(5) CUANTO(6) METODO(7)
-          const cliente = String(row[0]||'').trim();
-          const skip = ['','CLIENTE','TOTAL','LOCIONES','LOCION','LOCIONE'];
-          if(skip.includes(cliente.toUpperCase())) return;
-          const cantidad = Number(row[1])||1;
-          const locion = String(row[2]||'').trim();
-          const costo = Number(row[3])||0;
-          const precio = Number(row[4])||0;
-          const estadoRaw = String(row[5]||'').trim().toLowerCase();
-          const estado = estadoRaw==='pago'?'Pago':'Debe';
-          const cuanto = Number(row[6])||precio*cantidad;
-          const metodoRaw = String(row[7]||'').trim();
-          const metodo = metodoRaw||'Efectivo';
-          const total = precio * cantidad || cuanto;
-          ventas.push({id:Date.now()+importadas,cliente,lote:sheetName,locion,cantidad,costo,precio,total,estado,cuanto,metodo,fecha:new Date().toLocaleDateString('es-CO')});
-          importadas++;
-        });
-      });
-      save();
-      renderAll();
-      msg.style.color='#16a34a';
-      msg.textContent=`✅ Importadas ${importadas} ventas de ${wb.SheetNames.length} lotes correctamente.`;
-    }catch(err){
-      msg.style.color='#dc2626';
-      msg.textContent='❌ Error al leer el archivo: '+err.message;
+    editIdx = id;
+
+    const v = ventas.find(x => x._id === id);
+
+    if(!v) return;
+
+    document.getElementById('m_cliente').value = v.cliente;
+
+    llenarLotesSelect(
+        document.getElementById('m_lote'),
+        v.lote
+    );
+
+    const esCab = LOCIONES_CABALLERO.includes(v.locion);
+
+    if(esCab){
+
+        document.getElementById('m_g_cab').classList.add('active');
+        document.getElementById('m_g_dam').classList.remove('active');
+
+        llenarLocionSelect(
+            document.getElementById('m_locion'),
+            LOCIONES_CABALLERO,
+            v.locion
+        );
+
+    }else{
+
+        document.getElementById('m_g_dam').classList.add('active');
+        document.getElementById('m_g_cab').classList.remove('active');
+
+        llenarLocionSelect(
+            document.getElementById('m_locion'),
+            LOCIONES_DAMA,
+            v.locion
+        );
+
     }
-  };
-  reader.readAsBinaryString(file);
+
+    document.getElementById('m_cantidad').value = v.cantidad;
+
+    setPV('m_costo', v.costo);
+    setPV('m_precio', v.precio);
+    setPV('m_cuanto', v.cuanto);
+
+    document.getElementById('m_estado').value = v.estado;
+    document.getElementById('m_metodo').value = v.metodo;
+
+    document.getElementById('modalOverlay').classList.add('open');
+
 }
 
-function borrarTodo(){
-  if(!confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.')) return;
-  ventas=[];
-  lotes=['Primer Lote','Segundo Lote','Tercer Lote','Cuarto Lote','Quinto Lote','Sexto Lote','Septimo Lote','Octavo Lote'];
-  save();renderAll();
-  document.getElementById('msgImport').style.color='#dc2626';
-  document.getElementById('msgImport').textContent='🗑️ Datos borrados.';
+
+function cerrarModal(){
+
+    document.getElementById('modalOverlay').classList.remove('open');
+
+    editIdx = null;
+
 }
 
-renderAll();
+
+async function guardarEdicion(){
+
+    if(!editIdx) return;
+
+    const venta = {
+
+        cliente: document.getElementById('m_cliente').value,
+
+        lote: document.getElementById('m_lote').value,
+
+        locion: document.getElementById('m_locion').value,
+
+        cantidad: Number(document.getElementById('m_cantidad').value) || 1,
+
+        costo: getP('m_costo'),
+
+        precio: getP('m_precio'),
+
+        estado: document.getElementById('m_estado').value,
+
+        cuanto: getP('m_cuanto'),
+
+        metodo: document.getElementById('m_metodo').value
+
+    };
+
+    venta.total = venta.cantidad * venta.precio;
+
+    try{
+
+        const res = await fetch(`${API}/ventas/${editIdx}`,{
+
+            method:"PUT",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify(venta)
+
+        });
+
+        if(!res.ok){
+
+            throw new Error("Error al actualizar la venta");
+
+        }
+
+        await cargarVentas();
+
+        cerrarModal();
+
+        renderAll();
+
+        alert("Venta actualizada correctamente.");
+
+    }catch(error){
+
+        console.error(error);
+
+        alert("No fue posible actualizar la venta.");
+
+    }
+
+}
+async function eliminarVenta(){
+
+    if(!editIdx) return;
+
+    if(!confirm("¿Eliminar esta venta?")) return;
+
+    try{
+
+        const res = await fetch(`${API}/ventas/${editIdx}`,{
+            method:"DELETE"
+        });
+
+        if(!res.ok){
+            throw new Error("No fue posible eliminar la venta.");
+        }
+
+        await cargarVentas();
+
+        cerrarModal();
+
+        renderAll();
+
+        alert("Venta eliminada correctamente.");
+
+    }catch(error){
+
+        console.error(error);
+
+        alert("Error al eliminar la venta.");
+
+    }
+
+}
+
+
+function abrirPagoModal(id){
+
+    pagoIdx = id;
+
+    const venta = ventas.find(v => v._id === id);
+
+    if(!venta) return;
+
+    document.getElementById("pagoInfo").textContent =
+        `${venta.cliente} — ${venta.locion} — ${fmt(venta.cuanto)} pendientes`;
+
+    document.getElementById("pagoModal").classList.add("open");
+
+}
+
+
+function cerrarPagoModal(){
+
+    document.getElementById("pagoModal").classList.remove("open");
+
+    pagoIdx = null;
+
+}
+
+
+async function confirmarPago(){
+
+    if(!pagoIdx) return;
+
+    const venta = ventas.find(v => v._id === pagoIdx);
+
+    if(!venta) return;
+
+    try{
+
+        const res = await fetch(`${API}/ventas/${pagoIdx}`,{
+
+            method:"PUT",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify({
+
+                ...venta,
+
+                estado:"Pago",
+
+                cuanto:venta.total,
+
+                metodo:document.getElementById("p_metodo").value
+
+            })
+
+        });
+
+        if(!res.ok){
+
+            throw new Error("Error al registrar el pago.");
+
+        }
+
+        await cargarVentas();
+
+        cerrarPagoModal();
+
+        renderAll();
+
+        alert("Pago registrado correctamente.");
+
+    }catch(error){
+
+        console.error(error);
+
+        alert("No fue posible registrar el pago.");
+
+    }
+
+}
+
+
+document.getElementById("modalOverlay").addEventListener("click",e=>{
+
+    if(e.target.id==="modalOverlay"){
+
+        cerrarModal();
+
+    }
+
+});
+
+
+document.getElementById("pagoModal").addEventListener("click",e=>{
+
+    if(e.target.id==="pagoModal"){
+
+        cerrarPagoModal();
+
+    }
+
+});
+
+
+// Carga inicial de la información desde MongoDB
+cargarDatos();
+async function importarExcel() {
+
+    const file = document.getElementById("excelFile").files[0];
+    const msg = document.getElementById("msgImport");
+
+    if (!file) {
+        msg.style.color = "#dc2626";
+        msg.textContent = "⚠️ Selecciona un archivo primero.";
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = async function (e) {
+
+        try {
+
+            const wb = XLSX.read(e.target.result, { type: "binary" });
+
+            let importadas = 0;
+
+            for (const sheetName of wb.SheetNames) {
+
+                // Crear el lote si no existe
+                try {
+
+                    await fetch(`${API}/lotes`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            nombre: sheetName
+                        })
+                    });
+
+                } catch (err) {}
+
+                const ws = wb.Sheets[sheetName];
+
+                const rows = XLSX.utils.sheet_to_json(ws, {
+                    header: 1,
+                    defval: ""
+                });
+
+                for (const row of rows) {
+
+                    const cliente = String(row[0] || "").trim();
+
+                    const skip = [
+                        "",
+                        "CLIENTE",
+                        "TOTAL",
+                        "LOCIONES",
+                        "LOCION",
+                        "LOCIONE"
+                    ];
+
+                    if (skip.includes(cliente.toUpperCase())) continue;
+
+                    const cantidad = Number(row[1]) || 1;
+                    const locion = String(row[2] || "").trim();
+                    const costo = Number(row[3]) || 0;
+                    const precio = Number(row[4]) || 0;
+
+                    const estado =
+                        String(row[5] || "").trim().toLowerCase() === "pago"
+                            ? "Pago"
+                            : "Debe";
+
+                    const cuanto =
+                        Number(row[6]) || precio * cantidad;
+
+                    const metodo =
+                        String(row[7] || "").trim() || "Efectivo";
+
+                    const total = precio * cantidad;
+
+                    await fetch(`${API}/ventas`, {
+
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            cliente,
+
+                            lote: sheetName,
+
+                            locion,
+
+                            cantidad,
+
+                            costo,
+
+                            precio,
+
+                            total,
+
+                            estado,
+
+                            cuanto,
+
+                            metodo
+
+                        })
+
+                    });
+
+                    importadas++;
+
+                }
+
+            }
+
+            await cargarVentas();
+            await cargarLotes();
+
+            renderAll();
+
+            msg.style.color = "#16a34a";
+            msg.textContent =
+                `✅ Importadas ${importadas} ventas correctamente.`;
+
+        } catch (err) {
+
+            console.error(err);
+
+            msg.style.color = "#dc2626";
+
+            msg.textContent =
+                "❌ Error al leer el archivo.";
+
+        }
+
+    };
+
+    reader.readAsBinaryString(file);
+
+}
+
+
+
+async function borrarTodo() {
+
+    if (!confirm("¿Borrar TODAS las ventas?")) return;
+
+    try {
+
+        await cargarVentas();
+
+        for (const venta of ventas) {
+
+            await fetch(`${API}/ventas/${venta._id}`, {
+                method: "DELETE"
+            });
+
+        }
+
+        await cargarVentas();
+
+        renderAll();
+
+        document.getElementById("msgImport").style.color = "#dc2626";
+
+        document.getElementById("msgImport").textContent =
+            "🗑️ Todas las ventas fueron eliminadas.";
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert("No fue posible borrar las ventas.");
+
+    }
+
+}
+
+
+// Carga inicial
+cargarDatos();
+
 </script>
 </body>
 </html>
