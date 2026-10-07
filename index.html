@@ -141,7 +141,7 @@
       <div class="field"><label>Estado</label><select id="x_estado"><option value="Pago">✅ Pago</option><option value="Debe">🔴 Debe</option></select></div>
       <div class="field"><label>Cuánto debe</label><input type="text" id="x_cuanto" data-precio oninput="fmtInput(this)" placeholder="0"></div>
       <div class="field"><label>Método</label><select id="x_metodo"><option>Efectivo</option><option>Nequi</option><option>Transferencia</option><option>Banco</option></select></div>
-      <div class="field" style="align-self:flex-end;"><button class="btn btn-primary" onclick="addPrem()">✅ Guardar</button></div>
+      <div class="field" style="align-self:flex-end;display:flex;flex-direction:row;gap:8px;"><button class="btn btn-primary" id="x_btn" onclick="addPrem()">✅ Guardar</button><button class="btn btn-sm" id="x_cancel" style="display:none;background:#e2e8f0;color:#4a5568;" onclick="cancelarEditPrem()">Cancelar</button></div>
     </div>
   </div>
   <div class="table-box">
@@ -413,6 +413,31 @@ function renderLotes(){
 }
 
 /* ===== LOCIONES 1.1 ===== */
+let editPrem = null;
+function limpiarPrem(){
+  ['x_cliente','x_locion','x_costo','x_precio','x_cuanto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('x_cantidad').value='1';
+  document.getElementById('x_estado').value='Pago';
+  editPrem = null;
+  document.getElementById('x_btn').textContent='✅ Guardar';
+  document.getElementById('x_cancel').style.display='none';
+}
+function cancelarEditPrem(){limpiarPrem();}
+function editarPrem(id){
+  const v = prem.find(x=>x._id===id); if(!v) return;
+  editPrem = id;
+  document.getElementById('x_cliente').value = v.cliente;
+  document.getElementById('x_locion').value = v.locion;
+  document.getElementById('x_cantidad').value = v.cantidad;
+  setPV('x_costo',v.costo);
+  setPV('x_precio',v.precio);
+  document.getElementById('x_estado').value = v.estado;
+  setPV('x_cuanto', v.estado==='Debe'?v.cuanto:0);
+  document.getElementById('x_metodo').value = v.metodo;
+  document.getElementById('x_btn').textContent='💾 Actualizar';
+  document.getElementById('x_cancel').style.display='inline-block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 async function addPrem(){
   const g = id=>document.getElementById(id).value.trim();
   if(!g('x_cliente')||!g('x_locion')){alert('Cliente y loción son obligatorios');return;}
@@ -420,11 +445,11 @@ async function addPrem(){
   const total = cantidad*precio, estado = g('x_estado');
   const venta = {cliente:g('x_cliente'),locion:g('x_locion'),cantidad,costo,precio,total,estado,cuanto:estado==='Debe'?(getP('x_cuanto')||total):total,metodo:g('x_metodo')};
   try{
-    const res = await fetch(`${API}/premium`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(venta)});
+    const url = editPrem ? `${API}/premium/${editPrem}` : `${API}/premium`;
+    const res = await fetch(url,{method:editPrem?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(venta)});
     if(!res.ok) throw new Error();
     await cargarVentas();
-    ['x_cliente','x_locion','x_costo','x_precio','x_cuanto'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('x_cantidad').value='1';
+    limpiarPrem();
     renderAll();
   }catch(e){alert('Error al guardar');}
 }
@@ -454,7 +479,7 @@ function renderPrem(){
     <div class="card green"><div class="label">Ganancia</div><div class="value">${fmt(gan)}</div></div>
     <div class="card red"><div class="label">Por cobrar</div><div class="value">${fmt(deb)}</div></div>
     <div class="card"><div class="label">Unidades</div><div class="value">${un}</div></div>`;
-  document.getElementById('premTabla').innerHTML = prem.map(v=>`<tr><td><strong>${v.cliente}</strong></td><td>${v.locion}</td><td>${v.cantidad}</td><td>${fmt(v.costo)}</td><td>${fmt(v.precio)}</td><td><strong>${fmt(v.total)}</strong></td><td style="color:#7c3aed;font-weight:700">${fmt(v.total-v.costo*v.cantidad)}</td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?fmt(v.cuanto):'-'}</td><td>${v.metodo}</td><td>${v.estado==='Debe'?`<button class="btn btn-success btn-sm" onclick="pagoPrem('${v._id}')">💵 Pagó</button> `:''}<button class="btn btn-danger btn-sm" onclick="delPrem('${v._id}')">🗑️</button></td></tr>`).join('')
+  document.getElementById('premTabla').innerHTML = prem.map(v=>`<tr><td><strong>${v.cliente}</strong></td><td>${v.locion}</td><td>${v.cantidad}</td><td>${fmt(v.costo)}</td><td>${fmt(v.precio)}</td><td><strong>${fmt(v.total)}</strong></td><td style="color:#7c3aed;font-weight:700">${fmt(v.total-v.costo*v.cantidad)}</td><td><span class="badge ${v.estado.toLowerCase()}">${v.estado==='Pago'?'✅ Pago':'🔴 Debe'}</span></td><td>${v.estado==='Debe'?fmt(v.cuanto):'-'}</td><td>${v.metodo}</td><td>${v.estado==='Debe'?`<button class="btn btn-success btn-sm" onclick="pagoPrem('${v._id}')">💵 Pagó</button> `:''}<button class="btn btn-primary btn-sm" onclick="editarPrem('${v._id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="delPrem('${v._id}')">🗑️</button></td></tr>`).join('')
     || '<tr><td colspan="11" style="text-align:center;padding:30px;color:#a0aec0;">Sin ventas aún</td></tr>';
 }
 
