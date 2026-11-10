@@ -1,0 +1,42 @@
+{
+  "name": "Perfumes Granja - Sistema de Ventas",
+  "short_name": "Perfumes Granja",
+  "description": "Sistema de administración de ventas de lociones y perfumes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "orientation": "any",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/assests/administrador.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assests/administrador.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Registrar Venta",
+      "short_name": "Registrar",
+      "description": "Ir directamente a registrar una venta",
+      "url": "/?page=ventas",
+      "icons": [{ "src": "/assests/administrador.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Ver el resumen de ventas",
+      "url": "/?page=dashboard",
+      "icons": [{ "src": "/assests/administrador.png", "sizes": "192x192" }]
+    }
+  ]
+}
