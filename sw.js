@@ -1,5 +1,5 @@
 // ===== SERVICE WORKER - Perfumes Granja PWA =====
-const CACHE_NAME = 'perfumes-granja-v1';
+const CACHE_NAME = 'perfumes-granja-v2';
 const API_BASE = 'https://administracion-lociones-back.vercel.app/api';
 
 // Archivos del app shell que se cachean al instalar
@@ -7,7 +7,10 @@ const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
+  '/manifest.json',
   '/assests/administrador.png',
+  '/assests/icon-192.png',
+  '/assests/icon-512.png',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
